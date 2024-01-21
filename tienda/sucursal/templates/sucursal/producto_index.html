@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- Agrega los enlaces a Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+
+  <header>
+    <div class="navbar navbar-expand-lg navbar-dark bg-dark ">
+      <div class="container">
+        <a href="{% url 'sucursal_index' %}" class="navbar-brand">
+          <strong>MUSIC PRO</strong>
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarHeader" aria-controls="navbarHeader" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ml-2 justify-content-end">
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'list_boleta' %}">Listado</a>
+                </li>
+            </ul>
+        </div>
+
+         <!-- Agrega un contenedor para el carrito desplegable -->
+          <div class="container mt-2 position-relative">
+            <div class="d-flex justify-content-end">
+              <!-- Botón para mostrar/ocultar el carrito -->
+              <button class="btn btn-primary" id="toggleCarrito">Carrito</button>
+            </div>
+
+        <!-- Carrito de compras desplegable -->
+        <div id="carrito-desplegable" class="position-absolute top-0 end-0 bg-light p-3 border" style="display: none;">
+          <!-- Botón para cerrar/ocultar el carrito -->
+          <button class="btn btn-danger btn-sm float-end" id="cerrarCarrito" onclick="cerrarCarrito()">Cerrar</button>
+
+        <!-- Carrito de compras -->
+        <div class="container mt-4">
+          <h2>Carrito de compras</h2>
+          <ul id="carrito-lista" class="list-group"></ul>
+          <p>Total: $<span id="total">0.00</span></p>
+
+          <form action="{% url 'pagar' %}" method="POST">
+            {% csrf_token %}
+
+            <!-- Campos para nombre y dirección -->
+            <div class="mb-3">
+                <label for="nombre_usuario" class="form-label">Nombre</label>
+                <input 
+                    type="text"
+                    class="form-control"
+                    name="nombre"
+                    id="nombre_usuario"
+                    required
+                />
+            </div>
+
+            <div class="mb-3">
+                <label for="direccion_usuario" class="form-label">Dirección</label>
+                <input 
+                    type="text"
+                    class="form-control"
+                    name="direccion"
+                    id="direccion_usuario"
+                    required
+                />
+            </div>
+
+            <!-- Campos existentes -->
+            <div class="mb-3" style="display: none;">
+              <label for="productos_form" class="form-label">Productos</label>
+              <input 
+                type="text"
+                class="form-control"
+                name="productos_form"
+                id="productos_form"
+                readonly
+              />
+              <small id="helpId" class="form-text text-muted">Help text</small>
+            </div>
+            
+            <button type="submit" class="btn btn-success">Pagar</button>
+          </form>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+<div class="container">
+  <table class="table">
+    <thead>
+      <tr>
+        <th scope="col">#</th>
+        <th scope="col">Nombre</th>
+        <th scope="col">Descripción</th>
+        <th scope="col">Precio</th>
+        <th scope="col">Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for producto in productos %}
+        <tr>
+          <th scope="row">{{ producto.id }}</th>
+          <td>{{ producto.nombre }}</td>
+          <td>{{ producto.descripcion }}</td>
+          <td>${{ producto.precio }}</td>
+          <td>
+            <button class="btn btn-primary" onclick="agregarAlCarrito('{{ producto.id }}', '{{ producto.nombre }}', {{ producto.precio }})">Agregar al carrito</button>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Agrega jQuery antes de tu código JavaScript -->
+<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+
+<!-- Agrega los enlaces a Bootstrap JS y Popper.js (si es necesario) al final del body -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+  var carrito = [];
+  
+  function agregarAlCarrito(id, nombre, precio) {
+    // Busca si el producto ya está en el carrito
+    var productoExistente = carrito.find(producto => producto.id === id);
+
+    if (productoExistente) {
+      // Si el producto ya está en el carrito, incrementa la cantidad
+      productoExistente.cantidad += 1;
+    } else {
+      // Si el producto no está en el carrito, agrégalo con cantidad 1
+      var producto = {
+        id: id,
+        nombre: nombre,
+        precio: precio,
+        cantidad: 1
+      };
+      carrito.push(producto);
+    }
+
+    actualizarCampoProductos();
+    actualizarInterfazUsuario();
+  }
+
+  function eliminarDelCarrito(index) {
+    carrito.splice(index, 1);
+    actualizarCampoProductos();
+    actualizarInterfazUsuario();
+  }
+
+  function incrementarCantidad(index) {
+    carrito[index].cantidad += 1;
+    actualizarCampoProductos();
+    actualizarInterfazUsuario();
+  }
+
+  function decrementarCantidad(index) {
+    if (carrito[index].cantidad > 1) {
+      carrito[index].cantidad -= 1;
+      actualizarCampoProductos();
+      actualizarInterfazUsuario();
+    }
+  }
+
+  function actualizarCampoProductos() {
+    document.getElementById('productos_form').value = JSON.stringify(carrito);
+  }
+
+  function actualizarInterfazUsuario() {
+    var carritoLista = document.getElementById("carrito-lista");
+    var totalElement = document.getElementById("total");
+    
+    carritoLista.innerHTML = "";
+    var total = 0;
+
+    carrito.forEach(function(producto, index) {
+      var listItem = document.createElement("li");
+      listItem.className = "list-group-item";
+      listItem.innerHTML = `<span>${producto.nombre} (x${producto.cantidad})</span> - $${(producto.precio * producto.cantidad).toFixed(2)} 
+                            <button class="btn btn-success btn-sm mx-1" onclick="incrementarCantidad(${index})">&#43;</button>
+                            <button class="btn btn-warning btn-sm mx-1" onclick="decrementarCantidad(${index})">&#8722;</button>
+                            <button class="btn btn-danger btn-sm float-end" onclick="eliminarDelCarrito(${index})">Eliminar</button>`;
+      carritoLista.appendChild(listItem);
+      total += producto.precio * producto.cantidad;
+    });
+
+    totalElement.textContent = total.toFixed(2);
+  }
+
+  function realizarPago() {
+    $.ajax({
+        url: '/boleta/',
+        method: 'POST',
+        data: {
+            'productos_form': JSON.stringify(carrito),
+            csrfmiddlewaretoken: $('input[name=csrfmiddlewaretoken]').val()
+        },
+        success: function (response) {
+            alert(response.mensaje);
+            // Realiza acciones adicionales según tus necesidades
+        },
+        error: function (error) {
+            console.error(error);
+        }
+    });
+
+    carrito = [];
+    actualizarCampoProductos();
+    actualizarInterfazUsuario();
+}
+
+    // Función para cerrar/ocultar el carrito
+    function cerrarCarrito() {
+      $("#carrito-desplegable").hide();
+    }
+
+    // Agrega un evento para mostrar/ocultar el carrito al hacer clic en el botón
+    $(document).ready(function() {
+      $("#toggleCarrito").click(function() {
+        $("#carrito-desplegable").toggle();
+      });
+    });
+
+</script>
+
+</body>
+</html>
+
+
+<!--   -->
